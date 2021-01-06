@@ -55,7 +55,7 @@ Please follow the below steps to run MMpred:
 
 
 ## 4. OUTPUT
-Output files of MMpred are stored in the ``"example/output_files/"`` folder, including five predicted models (model_X.pdb).
+Output files of MMpred are stored in the ``"example/output_files/"`` folder, including five predicted models (modelX.pdb).
 
 	model1.pdb
 	model2.pdb
