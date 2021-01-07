@@ -1359,7 +1359,7 @@ ClassicAbinitio::DM_score( core::pose::Pose &pose, core::pose::Pose &tempPose ){
 	double num = 0;
 	double d0 = 0;
 	for(int i = 0; i < lenth_of_sequence;){
-		for(int j = i+2; j < lenth_of_sequence;){
+		for(int j = i+1; j < lenth_of_sequence;){
 			Vector a1 = (pose.residue(i+1).atom("CA").xyz());
 			Vector a2 = (pose.residue(j+1).atom("CA").xyz());
 			
@@ -1373,15 +1373,12 @@ ClassicAbinitio::DM_score( core::pose::Pose &pose, core::pose::Pose &tempPose ){
 				score_sum += 1/(1 + pow(di/d0, 2));
 				num += 1;
 			}
-			j = j+2;
 		}
-		i = i+2;
 	}
 	dm_score = score_sum/num;
 	
 	return dm_score;
 }
-
 
 bool 
 ClassicAbinitio::boltzmann_accept(double const& targetEnergy, double const& trialEnergy){
