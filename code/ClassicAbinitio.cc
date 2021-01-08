@@ -1358,17 +1358,17 @@ ClassicAbinitio::DM_score( core::pose::Pose &pose, core::pose::Pose &tempPose ){
 	double dm_score = 0;
 	double num = 0;
 	double d0 = 0;
-	for(int i = 0; i < lenth_of_sequence;){
-		for(int j = i+1; j < lenth_of_sequence;){
+	float varepsilon = 0.001;
+	for(int i = 0; i < lenth_of_sequence; i++){
+		for(int j = i+1; j < lenth_of_sequence; j++){
 			Vector a1 = (pose.residue(i+1).atom("CA").xyz());
 			Vector a2 = (pose.residue(j+1).atom("CA").xyz());
 			
 			Vector b1 = (tempPose.residue(i+1).atom("CA").xyz());
 			Vector b2 = (tempPose.residue(j+1).atom("CA").xyz());
 			
-			d0 = log(fabs(i-j));
+			d0 = log(varepsilon + fabs(i-j));
 			double di = fabs( a1.distance(a2) - b1.distance(b2) );
-			
 			if( fabs(i-j) >= 3 ){
 				score_sum += 1/(1 + pow(di/d0, 2));
 				num += 1;
@@ -1379,6 +1379,37 @@ ClassicAbinitio::DM_score( core::pose::Pose &pose, core::pose::Pose &tempPose ){
 	
 	return dm_score;
 }
+
+//快速版评估模型：相隔一个残基计算一次，不影响评估准确性以及预测精度．
+// double 
+// ClassicAbinitio::DM_score( core::pose::Pose &pose, core::pose::Pose &tempPose ){
+// 	double score_sum = 0;
+// 	double dm_score = 0;
+// 	double num = 0;
+// 	double d0 = 0;
+// 	float varepsilon = 0.001;
+// 	for(int i = 0; i < lenth_of_sequence;){
+// 		for(int j = i+2; j < lenth_of_sequence;){
+// 			Vector a1 = (pose.residue(i+1).atom("CA").xyz());
+// 			Vector a2 = (pose.residue(j+1).atom("CA").xyz());
+// 			
+// 			Vector b1 = (tempPose.residue(i+1).atom("CA").xyz());
+// 			Vector b2 = (tempPose.residue(j+1).atom("CA").xyz());
+// 			
+// 			d0 = log(varepsilon + fabs(i-j));
+// 			double di = fabs( a1.distance(a2) - b1.distance(b2) );
+// 			if( fabs(i-j) >= 3 ){
+// 				score_sum += 1/(1 + pow(di/d0, 2));
+// 				num += 1;
+// 			}
+// 			j = j+2;
+// 		}
+// 		i = i+2;
+// 	}
+// 	dm_score = score_sum/num;
+// 	
+// 	return dm_score;
+// }
 
 bool 
 ClassicAbinitio::boltzmann_accept(double const& targetEnergy, double const& trialEnergy){
