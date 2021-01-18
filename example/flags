@@ -1,7 +1,0 @@
--in:file:fasta ./input_files/fasta
--in:file:frag3 ./input_files/aat000_03_05.200_v1_3
--in:file:frag9 ./input_files/aat000_09_05.200_v1_3
-
--abinitio:increase_cycles 1
--nstruct 1
--out:pdb
