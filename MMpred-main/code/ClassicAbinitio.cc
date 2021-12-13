@@ -100,7 +100,6 @@
 using namespace std;
 core::pose::Pose initPose;
 core::pose::Pose tempPose;
-core::pose::Pose native_pose;
 //000000000000000000000000000000000000000000000000000000000
 
 //000000000000000000000000000000000000000000000000000000000
@@ -340,76 +339,53 @@ void ClassicAbinitio::apply( core::pose::Pose & pose ) {
 	
 	Read_distance();
 	
-	
+	///====================================Initial population=======================================
 	initPose = pose;
-	vector<core::pose::Pose> storage_pose = Initial_population( pose );
+	vector<core::pose::Pose> storage_pose = Initial_population_( pose );
 	
 	
-	cout << "===========================Modal Exploration===========================" << endl;
-	Multimodal_explore(storage_pose, G_explore*0.4);
-	cout << "#######################################################################" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                     Modal Exploration Complete                      #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#######################################################################" << endl;
-	cout << endl;
-
+	///====================================Multimodal explore======================================
+	Multimodal_explore(storage_pose, G_explore*0.6);	
 	
-	cout << "===========================Modal Maintaining===========================" << endl;
+	///====================================Multimodal maintain=======================================
 	num_false = 0;
 	bool can_forming;
 	can_forming = Multimodal_maintain(storage_pose);
 	
 	while(can_forming == false){
-		Multimodal_explore(storage_pose, G_explore*0.2);
+		cout << "can_forming == false" << endl;
+		Multimodal_explore(storage_pose, G_explore*0.1);
 		can_forming = Multimodal_maintain(storage_pose);
 		
 		num_false ++;
-	}
-	cout << "#######################################################################" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                     Modal Maintaining Complete                      #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#######################################################################" << endl;
-	cout << endl;
-
-	cout << "===========================Modal Exploitation==========================" << endl;
+	}	
+	
+	///====================================Multimodal enhancing(Contact)=====================================
+	cout << "MODAL-SIZE(CONTACT) = " << Vec_modal_contact.size() << endl;
 	Multimodal_enhance_c();
-	cout << "#######################################################################" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                      Modal Exploitation Complete                    #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#                                                                     #" << endl;
-	cout << "#######################################################################" << endl;
-	cout << endl;
-	final_enhence(Vec_modal_contact);
+	Last_gen_pose(Vec_modal_contact);
+// 	all_gen_pose(Vec_modal_contact);
+	
+	///====================================final enhance=======================================
+	// core::pose::Pose pose
+	final_enhence();
 }
 
 void 
 ClassicAbinitio::Multimodal_explore(vector<core::pose::Pose> &storage_pose, int Gen){
 ///================================ @Multimodal_explore ================================
-	KT_D = 1;
+	KT_C = 2;
 	frag_ = 9;
 	FragAssem_ = brute_move_large_;
 	
-
  	vector< vector<double> > DMscore_map( calculate_population_DMscore(storage_pose) );
-	vector<double> storage_pose_Cscore( calculate_population_Dscore(storage_pose) );
+	vector<double> storage_pose_Cscore( calculate_population_Cscore(storage_pose) );
 	
 	for(int g = 1; g <= Gen; g++){
+		cout << "///  Gen = " << g << endl;
 		Multimodal_explore(storage_pose, storage_pose_Cscore, DMscore_map);
 	}
+	cout << "###     Multimodal_explore     ###" << endl;
 }
 	
 bool 
@@ -418,7 +394,7 @@ ClassicAbinitio::Multimodal_maintain(vector<core::pose::Pose> &storage_pose){
 	frag_ = 9;
 	FragAssem_ = brute_move_large_;
 	
-	DMscore_and_cluster( storage_pose );
+	CMscore_and_cluster( storage_pose );
 	
 	double M_score = 0.5;
 	vector< vector< vector<double> > > DMscore_map2;
@@ -505,6 +481,7 @@ ClassicAbinitio::Multimodal_maintain(vector<core::pose::Pose> &storage_pose){
 		double Cut_DMscore = 0.5;
 		Size gen_no_change = 0;
 		for (int g = 1; g <= G_maintain*0.5; ++g){
+			cout << "///  G_maintain*0.5 = " << g << endl;
 			
 			vector< vector<double> > true_modal_Cscore_mer;
 			vector< vector<double> > true_modal_energy_mer;
@@ -516,7 +493,7 @@ ClassicAbinitio::Multimodal_maintain(vector<core::pose::Pose> &storage_pose){
 				for(Size j = 0; j < vec_top_modal[i].size(); j++)
 					population.push_back( vec_top_modal[i][j] );
 				
-				true_modal_Cscore_mer.push_back( calculate_population_Dscore(population) );
+				true_modal_Cscore_mer.push_back( calculate_population_Cscore(population) );
 				true_modal_energy_mer.push_back( calculate_population_energy(population) );
 				
 				Multimodal_maintain(population, true_modal_energy_mer[i], true_modal_Cscore_mer[i]);
@@ -563,6 +540,7 @@ ClassicAbinitio::Multimodal_maintain(vector<core::pose::Pose> &storage_pose){
 			}
 			
 			if(g == G_maintain*0.5 && low_modal.size() != 0){
+				cout << "!!!!!!!!!!!!Not complete merging!!!!!!!!!!!!" << endl;
 				for(Size i = 0; i < low_modal.size(); i++){
 					vector<double> vec_trialPose;
 					for(Size k = 0; k < center_of_top_modal.size(); k++)
@@ -580,6 +558,7 @@ ClassicAbinitio::Multimodal_maintain(vector<core::pose::Pose> &storage_pose){
 		
 		///@note ######################### all modal evolution #########################
 		for (int g = 1; g <= G_maintain*0.5; ++g){
+			cout << "///  G_maintain = " << g << endl;
 			vector< vector<double> > true_modal_Cscore_mer;
 			vector< vector<double> > true_modal_energy_mer;
 			for(Size i = 0; i < vec_top_modal.size(); i++){
@@ -587,12 +566,14 @@ ClassicAbinitio::Multimodal_maintain(vector<core::pose::Pose> &storage_pose){
 				for(Size j = 0; j < vec_top_modal[i].size(); j++)
 					population.push_back( vec_top_modal[i][j] );
 				
-				true_modal_Cscore_mer.push_back( calculate_population_Dscore(population) );
+				true_modal_Cscore_mer.push_back( calculate_population_Cscore(population) );
 				true_modal_energy_mer.push_back( calculate_population_energy(population) );
 				
 				Multimodal_maintain(population, true_modal_energy_mer[i], true_modal_Cscore_mer[i]);
 			}
 		}
+			
+		cout << "###     Multimodal_maintain     ###" << endl;
 	}
 	else{
 		can_for = false;
@@ -606,11 +587,12 @@ ClassicAbinitio::Multimodal_maintain(vector<core::pose::Pose> &storage_pose){
 void 
 ClassicAbinitio::Multimodal_enhance_c(){
 ///================================ @Multimodal_enhance_c ================================
-	KT_D = 1;
+	KT_C = 2;
 	frag_ = 3;
 	FragAssem_ = brute_move_small_;
 	
 	for (Size m = 0; m < Vec_modal_contact.size(); m++){
+		cout << "###  G_enhance_c = " << m+1 << endl;
 		vector<core::pose::Pose> population;
 		vector<double> vec_modal_energy;
 		vector<double> vec_modal_Cscore;
@@ -619,8 +601,8 @@ ClassicAbinitio::Multimodal_enhance_c(){
 			population.push_back( Vec_modal_contact[m][i] );
 		
 		vec_modal_energy = calculate_population_energy(population);
-		vec_modal_Cscore = calculate_population_Dscore(population);
-		Ave_Dscore = Average_score_of_Populatin( vec_modal_Cscore );
+		vec_modal_Cscore = calculate_population_Cscore(population);
+		Ave_Cscore = Average_score_of_Populatin( vec_modal_Cscore );
 		
 		for (int g = 0; g < G_enhance_c; g++){
 			Multimodal_enhance_c(population, vec_modal_energy, vec_modal_Cscore, g);
@@ -629,10 +611,12 @@ ClassicAbinitio::Multimodal_enhance_c(){
 		for(Size i = 0; i < Vec_modal_contact[m].size(); i++)
 			Vec_modal_contact[m][i] = population[i];
 	}
+	
+	cout << "###     Multimodal_enhance_c     ###" << endl;
 }
 
 void 
-ClassicAbinitio::Multimodal_explore(vector< core::pose::Pose >& storage_pose, vector< double >& population_Dscore, vector< vector<double> > &DMscore_map){
+ClassicAbinitio::Multimodal_explore(vector< core::pose::Pose >& storage_pose, vector< double >& population_Cscore, vector< vector<double> > &DMscore_map){
 ///=================================== @Multimodal_forming ================================================
 	int NP_ = storage_pose.size();
 	for ( int i = 0; i < NP_; ++i){
@@ -722,7 +706,7 @@ ClassicAbinitio::Multimodal_explore(vector< core::pose::Pose >& storage_pose, ve
 		
 		for(int r = 0; r < Crowding_radius_exp; r++){
 			int crow_index = CMscore_and_num[NP_-1-rand_integer[r]].second;
-			if ( boltzmann_accept(population_Dscore[crow_index], trialCscore, KT_D) ){
+			if ( boltzmann_accept(population_Cscore[crow_index], trialCscore, KT_C) ){
 				for(int k = 0; k < NP_; k++){
 					DMscore_map[crow_index][k] = vec_trialPose[k];
 					DMscore_map[k][crow_index] = vec_trialPose[k];
@@ -730,7 +714,7 @@ ClassicAbinitio::Multimodal_explore(vector< core::pose::Pose >& storage_pose, ve
 				DMscore_map[crow_index][crow_index] = 1;
 				
 				storage_pose[crow_index] = trialPose;
-				population_Dscore[crow_index] = trialCscore;
+				population_Cscore[crow_index] = trialCscore;
 				
 				break;
 			}
@@ -740,9 +724,9 @@ ClassicAbinitio::Multimodal_explore(vector< core::pose::Pose >& storage_pose, ve
 }
 
 void 
-ClassicAbinitio::Multimodal_maintain(vector< core::pose::Pose >& population, vector< double >& population_energy, vector< double >& population_Dscore){
+ClassicAbinitio::Multimodal_maintain(vector< core::pose::Pose >& population, vector< double >& population_energy, vector< double >& population_Cscore){
 	KT_E = 1;
-	KT_D = 1;
+	KT_C = 2;
 	int NP_ = population.size();
 	for ( int i = 0; i < NP_; ++i){
 		int base = 0;
@@ -839,13 +823,13 @@ ClassicAbinitio::Multimodal_maintain(vector< core::pose::Pose >& population, vec
 			if ( boltzmann_accept(population_energy[crow_index], trialenergy, KT_E) ){
 				population[crow_index] = trialPose;
 				population_energy[crow_index] = trialEnergy;
-				population_Dscore[crow_index] = trialCscore;
+				population_Cscore[crow_index] = trialCscore;
 				
 			}
-			else if ( boltzmann_accept(population_Dscore[crow_index], trialCscore, KT_D) ){
+			else if ( boltzmann_accept(population_Cscore[crow_index], trialCscore, KT_C) ){
 				population[crow_index] = trialPose;
 				population_energy[crow_index] = trialEnergy;
-				population_Dscore[crow_index] = trialCscore;
+				population_Cscore[crow_index] = trialCscore;
 				
 			}
 		}
@@ -930,7 +914,7 @@ ClassicAbinitio::Modal_merging(vector< core::pose::Pose >& population, vector< c
 }
 
 void 
-ClassicAbinitio::Multimodal_enhance_c(vector<core::pose::Pose> &population, vector<double> &population_energy, vector<double> &population_Dscore, int enhance_g){
+ClassicAbinitio::Multimodal_enhance_c(vector<core::pose::Pose> &population, vector<double> &population_energy, vector<double> &population_Cscore, int enhance_g){
 	int NP_ = population.size();
 	for ( int i = 0; i < NP_; ++i){
 		///====================== @Fragment_recombination =====================
@@ -999,44 +983,351 @@ ClassicAbinitio::Multimodal_enhance_c(vector<core::pose::Pose> &population, vect
 		
 		if(enhance_g <= (G_enhance_c/8)*5){
 			if ( find_if( population_energy.begin(), population_energy.end(), isSimilar ) == population_energy.end() ){
-				if ( boltzmann_accept(population_Dscore[i], trialCscore, KT_D) ){
+				if ( boltzmann_accept(population_Cscore[i], trialCscore, KT_C) ){
 					population[i] = trialPose;
 					population_energy[i] = trialEnergy;
-					Ave_Dscore = Average_score_of_Populatin( population_Dscore[i], trialCscore, Ave_Dscore, NP_ );
-					population_Dscore[i] = trialCscore;
+					Ave_Cscore = Average_score_of_Populatin( population_Cscore[i], trialCscore, Ave_Cscore, NP_ );
+					population_Cscore[i] = trialCscore;
 				}
-				else if ( boltzmann_accept(Ave_Dscore, trialCscore, KT_D) && boltzmann_accept(population_energy[i], trialEnergy) ){
+				else if ( boltzmann_accept(Ave_Cscore, trialCscore, KT_C) && boltzmann_accept(population_energy[i], trialEnergy) ){
 					population[i] = trialPose;
 					population_energy[i] = trialEnergy;
-					Ave_Dscore = Average_score_of_Populatin( population_Dscore[i], trialCscore, Ave_Dscore, NP_ );
-					population_Dscore[i] = trialCscore;
+					Ave_Cscore = Average_score_of_Populatin( population_Cscore[i], trialCscore, Ave_Cscore, NP_ );
+					population_Cscore[i] = trialCscore;
 				}
 			}
 		}
 		else {
-			int max_Cscore_Pose_index = max_element(population_Dscore.begin(), population_Dscore.end())-population_Dscore.begin();
+			int max_Cscore_Pose_index = max_element(population_Cscore.begin(), population_Cscore.end())-population_Cscore.begin();
 			if ( find_if( population_energy.begin(), population_energy.end(), isSimilar ) == population_energy.end() ){
-				if ( boltzmann_accept(population_Dscore[max_Cscore_Pose_index], trialCscore, KT_D) ){
+				if ( boltzmann_accept(population_Cscore[max_Cscore_Pose_index], trialCscore, KT_C) ){
 					population[max_Cscore_Pose_index] = trialPose;
 					population_energy[max_Cscore_Pose_index] = trialEnergy;
-					population_Dscore[max_Cscore_Pose_index] = trialCscore;
+					population_Cscore[max_Cscore_Pose_index] = trialCscore;
 				}
 				else if ( boltzmann_accept(population_energy[i], trialEnergy) ){
 					population[i] = trialPose;
 					population_energy[i] = trialEnergy;
-					population_Dscore[i] = trialCscore;
+					population_Cscore[i] = trialCscore;
 				}
 			}
 		}
 	}
 }
+///##########################################final enhance的所有内容如下#############################################
+void 
+ClassicAbinitio::final_enhence(){
+	core::pose::Pose pose;
+	N1 = 5;
+	
+	load_initial_population("./output_files");
+	// Read_distance();
+	
+	dscore_map.resize( lenth_of_sequence );
+	for(int i = 0; i < lenth_of_sequence; i++){
+		for(int j = 0; j < lenth_of_sequence; j++){
+			dscore_map[i].push_back(0);
+		}
+	}
+
+	for(int i = 0; i < N1; i++){
+		for(int position_cycle_in = 1; position_cycle_in <= 3; position_cycle_in++){
+			vector<Size> shib_po;
+			shib_po.push_back(0);
+			for(int position_cycle = 0; position_cycle < lenth_of_sequence; position_cycle++){
+				bool cheng(false);
+				
+				lock_position(shib_po);
+				
+				double last_max_vec_mean = max_vec_mean;
+				vector< vector<double> > last_dscore_map;
+				last_dscore_map = dscore_map;
+				
+				FragAssem_ = brute_move_large_;
+				
+				for(int fragment_cycle = 0; fragment_cycle < 30; fragment_cycle++){
+					if(max_vec_mean >= last_max_vec_mean ){
+						if(max_vec_mean_index+1>0 && max_vec_mean_index+1<lenth_of_sequence-8){
+							core::pose::Pose pose_f;
+							pose_f = Initial_population[i];
+							pose = Initial_population[i];
+							
+							bml->define_start_window(max_vec_mean_index+1);
+							FragAssem_->apply( pose_f );
+							
+							Real temp1 = pose_f.phi(max_vec_mean_index+1);
+							Real temp2 = pose_f.psi(max_vec_mean_index+1);
+							Real temp3 = pose_f.omega(max_vec_mean_index+1);
+							pose.set_phi(max_vec_mean_index+1,temp1);
+							pose.set_psi(max_vec_mean_index+1,temp2);
+							pose.set_omega(max_vec_mean_index+1,temp3);
+							
+							Enhance_Distance_score(pose);
+							max_vec_mean = again_calc();
+						}
+					}
+					else{
+						Initial_population[i] = pose;
+						cheng = true;
+						
+						break;
+					}
+				}
+				
+				if(!cheng){
+					shib_po.push_back(max_vec_mean_index);
+				}
+			}
+		}
+	  
+	  
+		for(int position_cycle_in = 1; position_cycle_in <= 3; position_cycle_in++){
+			vector<Size> shib_po;
+			shib_po.push_back(0);
+			for(int position_cycle = 0; position_cycle < lenth_of_sequence; position_cycle++){
+				bool cheng(false);
+				
+				lock_position(shib_po);
+				
+				double last_max_vec_mean = max_vec_mean;
+				vector< vector<double> > last_dscore_map;
+				last_dscore_map = dscore_map;
+				
+				FragAssem_ = brute_move_small_;
+				
+				for(int fragment_cycle = 0; fragment_cycle < 30; fragment_cycle++){
+					if(max_vec_mean >= last_max_vec_mean ){
+						core::pose::Pose pose_f;
+						pose_f = Initial_population[i];
+						pose = Initial_population[i];
+						
+						bms->define_start_window(max_vec_mean_index+1);
+						FragAssem_->apply( pose_f );
+						
+						Real temp1 = pose_f.phi(max_vec_mean_index+1);
+						Real temp2 = pose_f.psi(max_vec_mean_index+1);
+						Real temp3 = pose_f.omega(max_vec_mean_index+1);
+						pose.set_phi(max_vec_mean_index+1,temp1);
+						pose.set_psi(max_vec_mean_index+1,temp2);
+						pose.set_omega(max_vec_mean_index+1,temp3);
+						
+						Enhance_Distance_score(pose);
+						max_vec_mean = again_calc();
+					}
+					else{
+						Initial_population[i] = pose;
+						cheng = true;
+						
+						break;
+					}
+				}
+				
+				if(!cheng){
+					shib_po.push_back(max_vec_mean_index);
+				}
+			}
+		}
+		
+		for(int position_cycle_in = 1; position_cycle_in <= 5; position_cycle_in++){
+			vector<Size> shib_po;
+			shib_po.push_back(0);
+			for(int position_cycle = 0; position_cycle < lenth_of_sequence; position_cycle++){
+				bool cheng(false);
+				
+				lock_position(shib_po);
+				
+				double last_max_vec_mean = max_vec_mean;
+				vector< vector<double> > last_dscore_map;
+				last_dscore_map = dscore_map;
+				
+				FragAssem_ = brute_move_small_;
+				
+				for(int fragment_cycle = 0; fragment_cycle < 200; fragment_cycle++){
+					if(max_vec_mean >= last_max_vec_mean ){
+						core::pose::Pose pose_fa;
+						core::pose::Pose pose_fb;
+						pose_fa = Initial_population[i];
+						pose_fb = Initial_population[i];
+						pose = Initial_population[i];
+						
+						bms->define_start_window(max_vec_mean_index+1);
+						FragAssem_->apply( pose_fa );
+						FragAssem_->apply( pose_fb );
+						
+						Real temp1 = pose.phi(max_vec_mean_index+1) + 0.5*( pose_fb.phi(max_vec_mean_index+1)-pose_fa.phi(max_vec_mean_index+1) );
+						Real temp2 = pose.psi(max_vec_mean_index+1) + 0.5*( pose_fb.psi(max_vec_mean_index+1)-pose_fa.psi(max_vec_mean_index+1) );
+						Real temp3 = pose.omega(max_vec_mean_index+1) + 0.5*( pose_fb.omega(max_vec_mean_index+1)-pose_fa.omega(max_vec_mean_index+1) );
+						pose.set_phi(max_vec_mean_index+1,temp1);
+						pose.set_psi(max_vec_mean_index+1,temp2);
+						pose.set_omega(max_vec_mean_index+1,temp3);
+						
+						Enhance_Distance_score(pose);
+						max_vec_mean = again_calc();
+					}
+					else{
+						Initial_population[i] = pose;
+						cheng = true;
+						
+						break;
+					}
+				}
+				
+				if(!cheng){
+					shib_po.push_back(max_vec_mean_index);
+				}
+			}
+		}
+		
+		for(int position_cycle_in = 1; position_cycle_in <= 5; position_cycle_in++){
+			vector<Size> shib_po;
+			shib_po.push_back(0);
+			for(int position_cycle = 0; position_cycle < lenth_of_sequence; position_cycle++){
+				bool cheng(false);
+				
+				lock_position(shib_po);
+				
+				double last_max_vec_mean = max_vec_mean;
+				
+				vector< vector<double> > last_dscore_map;
+				last_dscore_map = dscore_map;
+				
+				FragAssem_ = brute_move_small_;
+			
+				for(int fragment_cycle = 0; fragment_cycle < 200; fragment_cycle++){
+					if(max_vec_mean >= last_max_vec_mean ){
+						core::pose::Pose pose_fa;
+						core::pose::Pose pose_fb;
+						pose_fa = Initial_population[i];
+						pose_fb = Initial_population[i];
+						pose = Initial_population[i];
+						
+						bms->define_start_window(max_vec_mean_index+1);
+						FragAssem_->apply( pose_fa );
+						FragAssem_->apply( pose_fb );
+						
+						Real temp1 = pose.phi(max_vec_mean_index+1) + 0.5*( pose.phi(max_vec_mean_index+1)-pose_fa.phi(max_vec_mean_index+1) );
+						Real temp2 = pose.psi(max_vec_mean_index+1) + 0.5*( pose.psi(max_vec_mean_index+1)-pose_fa.psi(max_vec_mean_index+1) );
+						Real temp3 = pose.omega(max_vec_mean_index+1) + 0.5*( pose.omega(max_vec_mean_index+1)-pose_fa.omega(max_vec_mean_index+1) );
+						pose.set_phi(max_vec_mean_index+1,temp1);
+						pose.set_psi(max_vec_mean_index+1,temp2);
+						pose.set_omega(max_vec_mean_index+1,temp3);
+						
+						Enhance_Distance_score(pose);
+						max_vec_mean = again_calc();
+					}
+					else{
+						Initial_population[i] = pose;
+						cheng = true;
+						
+						break;
+					}
+				}
+				
+				if(!cheng){
+					shib_po.push_back(max_vec_mean_index);
+				}
+			}
+		}
+		
+	}
+	
+	Last_gen_pose();
+	//return;
+
+}
 
 void 
-ClassicAbinitio::Kmediods(int K, vector< vector<double> > Distance_Matrix){
-	if(K >= N ){
-		cout << "=========================The population is too small !!!" << endl;
-		exit(0);
+ClassicAbinitio::lock_position(vector<Size> shib){
+	vector<double> vec_mean;
+	for(int i = 0; i < lenth_of_sequence; i++){
+		if( i == 0 || i>=lenth_of_sequence-3 ){
+			vec_mean.push_back(0);
+		}
+		else{
+			int l =0;
+			double local_score = 0;
+			for(int m = i; m < lenth_of_sequence; m++){
+				for(int n = 0; n < i; n++){
+					if( dscore_map[m][n] !=0 ){
+						local_score += dscore_map[m][n];
+						l++;
+					}
+				}
+			}
+			double mean_local_score = local_score/l;
+			vec_mean.push_back(mean_local_score);
+		}
 	}
+	for(Size i = 0; i < shib.size(); i++){
+		vec_mean[shib[i]] = 0;
+	}
+	
+	max_vec_mean_index = max_element(vec_mean.begin(), vec_mean.end())-vec_mean.begin();
+	max_vec_mean = *max_element(vec_mean.begin(), vec_mean.end());
+}
+
+double 
+ClassicAbinitio::again_calc(){
+	int l = 0;
+	double local_score = 0;
+	for(int m = max_vec_mean_index; m < lenth_of_sequence; m++){
+		for(Size n = 0; n < max_vec_mean_index; n++){
+			if( dscore_map[m][n] !=0 ){
+				local_score += dscore_map[m][n];
+				l++;
+			}
+		}
+	}
+	double mean_local_score = local_score/l;
+	
+	return mean_local_score;
+}
+
+void 
+ClassicAbinitio::load_initial_population(string const &route){
+	for (int i = 0; i < N1; ++i){
+		stringstream IO3;
+		IO3 << route << "/Distance_model_" << i << ".pdb";
+		string pdb_route;
+		IO3 >> pdb_route;
+		
+		core::pose::Pose input_model;
+		core::import_pose::pose_from_file( input_model, pdb_route.c_str() );
+		core::util::switch_to_residue_type_set(input_model, chemical::CENTROID, true);
+		Initial_population.push_back( input_model );
+	}
+}
+
+void 
+ClassicAbinitio::Last_gen_pose(){
+	vector< pair<double, int> > vec_dscore_i;
+	for(Size i = 0; i < Initial_population.size(); i++){
+		vec_dscore_i.push_back( make_pair( Distance_score(Initial_population[i]), i) );
+		sort(vec_dscore_i.begin(), vec_dscore_i.end());
+	}
+	
+	for(Size i = 0; i < Initial_population.size(); i++){
+		stringstream ss;
+		string str;
+		string name("final_pdb/model_");
+		string suf(".pdb");
+		ss << i;
+		ss >> str;
+		Initial_population[vec_dscore_i[i].second].dump_pdb(name+str+suf);
+	}
+}
+
+///####################################################################################################
+void 
+ClassicAbinitio::Kmediods(Size K, vector< vector<double> > Distance_Matrix){
+ 	if(Cluster_num != 0){
+		K = Cluster_num;
+		cout << "//////////////////Fix Cluster number/////////////////" << endl;
+	}
+	else{
+		cout << "/////////////////Adaptive Clustering/////////////////" << endl;
+	}
+	cout << "////////////////////Cluster_num(K) ========= " << K << endl;
 	
 	vector<int> mediods;
 	vector< vector<int> > every_cluster;
@@ -1082,9 +1373,7 @@ ClassicAbinitio::Kmediods(int K, vector< vector<double> > Distance_Matrix){
 	}
 	
 	///@brief avoiding have cluster with no points.
-	int  num1 = 0;
-	while ( num1 < 50 ){
-		num1++;
+	while ( 1 ){
 		unsigned int k( 0 );
 		for ( ; k < mediods.size(); ++k ){
 			///@note extract all points belongs to cluster k.
@@ -1097,6 +1386,7 @@ ClassicAbinitio::Kmediods(int K, vector< vector<double> > Distance_Matrix){
 				}
 			}
 			if ( count_points <= 1 ){
+				cout << "have cluster with 0 point, reselect a new cluster center!!!" << endl;
 				int rand_mediod( 0 );
 				while ( 1 ){
 					rand_mediod = numeric::random::rg().random_range(0, NN-1);
@@ -1137,17 +1427,17 @@ ClassicAbinitio::Kmediods(int K, vector< vector<double> > Distance_Matrix){
 		}
 		//eg: 聚类中心为2,3,8,clusterAssement[0]=3,clusterAssement[1]=2,clusterAssement[2]=3,clusterAssement[3]=8,...........
 	}
-	if ( num1 >=50 ){
-		cout << "have cluster with 0 point, reselect a new cluster center!!!" << endl;
-		exit(0);
-	}
 	
 	///@note 记录类心是否发生改变,以及类心更新次数
-	int  num2 = 0;
+	int  num = 0;
 	///@brief iteration updata
-	while ( num2 < 50){
-		num2++;
-
+	while ( num < 200){
+		++num;
+// 		output << "-------------------------- clustring cycles: " << num << "   cluster centers: ";
+// 		for (Size i = 0; i < mediods.size(); ++i)
+// 			output << mediods[i] << " ";
+// 		output << endl;
+		
 		///@brief update cluster centers
 // 		pair<int, int> max_cluster( make_pair(0, 0) );
 		///max_cluster 记录最大的类和最大类中的个体数
@@ -1176,7 +1466,9 @@ ClassicAbinitio::Kmediods(int K, vector< vector<double> > Distance_Matrix){
 				}
 			}
 			mediods[k] = center_distance.first;
+// 			output << mediods[k] << "(" << count_points[k] << ")   ";
 		}
+// 		output << endl;
 		
 		int count_of_state_transition = 0;
 		///@brief update cluster (reclassification).
@@ -1228,8 +1520,10 @@ ClassicAbinitio::Kmediods(int K, vector< vector<double> > Distance_Matrix){
 				for( unsigned int f = k+1; f < vec_every_cluster.size(); f++){
 					num_distance += Distance_Matrix[vec_every_cluster[k]][vec_every_cluster[f]];
 					num ++;
+// 					output << Distance_Matrix[vec_every_cluster[k]][vec_every_cluster[f]] << "  ";
 				}
 			}
+// 			output << endl << "num = " << num << endl;
 			mean_num_distance += num_distance/num;
 		}
 	}
@@ -1244,6 +1538,7 @@ ClassicAbinitio::Map_matrix(vector< vector<double> > Map_matrix_pose){
 	vector< vector<double> >temp_map_matrix_pose_100( N,vector<double>(N,0) );
 	temp_map_matrix_pose_100 = Map_matrix_pose;
 	
+// 	outputmap << "对相似度分数排序:"<< endl;
 	double temp=0;
 	for(int m=0; m<N; m++){
 		for(int i=0; i<N; i++){
@@ -1264,6 +1559,7 @@ ClassicAbinitio::Map_matrix(vector< vector<double> > Map_matrix_pose){
 		for(int k=0; k<N; k++){
 			num[m] = num[m]+Map_matrix_pose[k][m+1];
 		}
+// 		outputmap << m << "阶距的和:" << num[m]/N << endl;
 	}
 	//m阶距的平方和
 	vector<double> mean_square(N-1,0);
@@ -1271,8 +1567,10 @@ ClassicAbinitio::Map_matrix(vector< vector<double> > Map_matrix_pose){
 		for(int k=0; k<N; k++){
 			mean_square[m] = mean_square[m]+pow(Map_matrix_pose[k][m+1],2);
 		}
+// 		outputmap << m << "阶距的平方和:" << mean_square[m]/N << endl;
 	}
 	//方差（平方均值-均值的平方）
+// 	outputmap << "方差： " << endl;
 	vector<double> temp_variance(N-1,0);
 	vector<double> variance(N-1,0);
 	for(int m=0; m<N-1; m++){
@@ -1280,33 +1578,37 @@ ClassicAbinitio::Map_matrix(vector< vector<double> > Map_matrix_pose){
 			temp_variance[m] = temp_variance[m]+( mean_square[k]/N - pow(num[k]/N,2) );
 		}
 		variance[m] = temp_variance[m]/(m+1);
+// 		outputmap << variance[m] << endl;
 	}
 	for(int m = 0; m < N-1; m++){
 		variance[m] = 10000*(temp_variance[m]/(m+1));
+// 		outvar << variance[m] << endl;
 	}
 ////------------------------------------------------------确定K个类----------------------------------------------------------
 	double w = 3;
 	int KK = 1;
 	vector<double> variance_cha(N-2,0);
 	vector<double> variance_dif(N-2,0);
-
+// 	outputmap <<"-----------variance_cha[m-1]-----------:"<< endl;
 	for(int m=0; m<N-2; m++){
 		variance_cha[m] = fabs(variance[m+1]-variance[m]);
+// 		outputmap << variance_cha[m] << endl;
 	}
-
+// 	outputmap <<"-----------variance_dif[m-1]-----------:"<< endl;
 	for(int m=0; m<N-3; m++){
 		variance_dif[m] = fabs( fabs(variance[m+2]-variance[m+1]) - fabs(variance[m+1]-variance[m]) );
+// 		outdif << variance_dif[m] << endl;
 	}
 	
 //差的差归一化处理
-// 	int Nor_KK = 0;
-// 	double max_variance_dif = *max_element(variance_dif.begin(), variance_dif.end());
-// 	double min_variance_dif = *min_element(variance_dif.begin(), variance_dif.end());
-// 	for(int m=0; m<N-3; m++){
-// 		double normalization_dif = (variance_dif[m]-min_variance_dif)/(max_variance_dif-min_variance_dif);
-// 		if(normalization_dif > 0.2)
-// 			Nor_KK++;
-// 	}
+	int Nor_KK = 0;
+	double max_variance_dif = *max_element(variance_dif.begin(), variance_dif.end());
+	double min_variance_dif = *min_element(variance_dif.begin(), variance_dif.end());
+	for(int m=0; m<N-3; m++){
+		double normalization_dif = (variance_dif[m]-min_variance_dif)/(max_variance_dif-min_variance_dif);
+		if(normalization_dif > 0.2)
+			Nor_KK++;
+	}
 	
 	for(int m=0; m<N-4; m++){
 		if(variance_dif[m+1]-variance_dif[m] > w * variance_dif[m]){
@@ -1322,6 +1624,10 @@ ClassicAbinitio::Map_matrix(vector< vector<double> > Map_matrix_pose){
 		}
 	}
 	
+// 	cout << "KK = " << KK << endl;
+// 	cout << "Nor_KK = " << Nor_KK << endl;
+	
+	
 	K_Kmediods = 0;
 	temp_mean_num_distance = 0;
 	for(int i = 0; i < 10; i++){
@@ -1331,7 +1637,7 @@ ClassicAbinitio::Map_matrix(vector< vector<double> > Map_matrix_pose){
 }
 
 void 
-ClassicAbinitio::DMscore_and_cluster(vector<core::pose::Pose> &storage_pose){
+ClassicAbinitio::CMscore_and_cluster(vector<core::pose::Pose> &storage_pose){
 	vector< vector<double> >TM_similar_score_map( storage_pose.size(),vector<double>(storage_pose.size(),0) );
 	for(Size k = 0; k < storage_pose.size(); k++){
 		for(Size f = k; f < storage_pose.size(); f++){
@@ -1342,42 +1648,42 @@ ClassicAbinitio::DMscore_and_cluster(vector<core::pose::Pose> &storage_pose){
 		}
 	}
 	
+// 	outputmap << "1减去， 分数越低越相似:"<< endl;
 	vector< vector<double> >map_matrix_pose_100( storage_pose.size(),vector<double>(storage_pose.size(),0) );
 	for(Size m=0; m<storage_pose.size(); m++){
 		for(Size k=0; k<storage_pose.size(); k++){
 			map_matrix_pose_100[m][k] = 1 - TM_similar_score_map[m][k];
+// 			output << setprecision(3)<< map_matrix_pose_100[m][k] << '\t';
 		}
+// 		output << endl << endl;
 	}
 	
 	Map_matrix( map_matrix_pose_100 );
 }
 
-
 // double 
 // ClassicAbinitio::DM_score( core::pose::Pose &pose, core::pose::Pose &tempPose ){
 // 	double score_sum = 0;
 // 	double dm_score = 0;
-// 	double num = 0;
 // 	double d0 = 0;
-// 	float varepsilon = 0.001;
 // 	for(int i = 0; i < lenth_of_sequence; i++){
 // 		for(int j = i+1; j < lenth_of_sequence; j++){
 // 			Vector a1 = (pose.residue(i+1).atom("CA").xyz());
 // 			Vector a2 = (pose.residue(j+1).atom("CA").xyz());
-// 			
+			
 // 			Vector b1 = (tempPose.residue(i+1).atom("CA").xyz());
 // 			Vector b2 = (tempPose.residue(j+1).atom("CA").xyz());
-// 			
-// 			d0 = log(varepsilon + fabs(i-j));
+			
+// 			d0 = log(fabs(i-j));
 // 			double di = fabs( a1.distance(a2) - b1.distance(b2) );
+			
 // 			if( fabs(i-j) >= 3 ){
 // 				score_sum += 1/(1 + pow(di/d0, 2));
-// 				num += 1;
 // 			}
 // 		}
 // 	}
-// 	dm_score = score_sum/num;
-// 	
+// 	dm_score = (2*score_sum)/((lenth_of_sequence)*(lenth_of_sequence)-5*lenth_of_sequence-6);
+	
 // 	return dm_score;
 // }
 
@@ -1411,6 +1717,7 @@ ClassicAbinitio::DM_score( core::pose::Pose &pose, core::pose::Pose &tempPose ){
 	
 	return dm_score;
 }
+
 
 bool 
 ClassicAbinitio::boltzmann_accept(double const& targetEnergy, double const& trialEnergy){
@@ -1452,17 +1759,17 @@ ClassicAbinitio::calculate_population_energy(vector< core::pose::Pose >& populat
 }
 
 vector< double > 
-ClassicAbinitio::calculate_population_Dscore(vector< core::pose::Pose >& population){
-	vector<double> population_Dscore;
+ClassicAbinitio::calculate_population_Cscore(vector< core::pose::Pose >& population){
+	vector<double> population_Cscore;
 	
 	for (Size i = 0; i < population.size(); ++i)
-		population_Dscore.push_back( Distance_score( population[i] ) );
+		population_Cscore.push_back( Distance_score( population[i] ) );
 		
-	if ( population_Dscore.size() != population.size() ){
+	if ( population_Cscore.size() != population.size() ){
 		cout << "ERROR!!!\n" << "ERROR : calculate population Cscore failed!!!\n" << "ERROR!!!" << endl;
 		exit(0);
 	}
-	return population_Dscore;
+	return population_Cscore;
 }
 
 vector< vector<double> >
@@ -1539,306 +1846,6 @@ ClassicAbinitio::Distance_score(core::pose::Pose& pose){
 	return Dis_score;
 }
 
-
-void 
-ClassicAbinitio::final_enhence(vector< vector<core::pose::Pose> > Vec_modal){
-	//对类进行排序
-	vector< pair<double, int> > modal_mean_contact;
-	for(Size i = 0; i < Vec_modal.size(); i++){
-		double distance_num = 0;
-		for(Size j = 0; j < Vec_modal[i].size(); j++){
-			distance_num += Distance_score(Vec_modal[i][j]);
-		}
-		modal_mean_contact.push_back( make_pair(distance_num/Vec_modal[i].size(), i) );
-	}
-	
-	sort(modal_mean_contact.begin(), modal_mean_contact.end());
-	
-	//选择类中能量最低的
-	vector<core::pose::Pose> sort_score_pose;
-	for(Size i = 0; i < modal_mean_contact.size(); i++){
-		vector<double> last_modal_contact;
-		for(Size j = 0; j < Vec_modal[modal_mean_contact[i].second].size(); j++)
-			last_modal_contact.push_back( Distance_score(Vec_modal[modal_mean_contact[i].second][j]) );
-		
-		int min_contact_index = min_element(last_modal_contact.begin(), last_modal_contact.end()) - last_modal_contact.begin();
-		sort_score_pose.push_back(Vec_modal[modal_mean_contact[i].second][min_contact_index]);
-	}
-	
-	for(Size i = 0; i < 5; i++){
-		Enhance_population.push_back(sort_score_pose[i]);
-	}
-	
-	Enhance();
-	
-	vector< pair<double, int> > vec_dscore_i;
-	for(Size i = 0; i < Enhance_population.size(); i++){
-		vec_dscore_i.push_back( make_pair( Distance_score(Enhance_population[i]), i) );
-		sort(vec_dscore_i.begin(), vec_dscore_i.end());
-	}
-	
-	for(Size i = 0; i < Enhance_population.size(); i++){
-		stringstream ss;
-		string str;
-		string name("output_files/model_");
-		string suf(".pdb");
-		ss << i;
-		ss >> str;
-		Enhance_population[vec_dscore_i[i].second].dump_pdb(name+str+suf);
-	}
-}
-
-void 
-ClassicAbinitio::Enhance(){
-	core::pose::Pose pose_E;
-	dscore_map.resize( lenth_of_sequence );
-	for(int i = 0; i < lenth_of_sequence; i++){
-		for(int j = 0; j < lenth_of_sequence; j++){
-			dscore_map[i].push_back(0);
-		}
-	}
-	for(int i = 0; i < Enhance_population.size(); i++){
-		for(int position_cycle_in = 1; position_cycle_in <= 1; position_cycle_in++){
-			vector<Size> shib_po;
-			shib_po.push_back(0);
-			for(int position_cycle = 0; position_cycle < lenth_of_sequence; position_cycle++){
-				bool cheng(false);
-				
-				lock_position(shib_po);
-				
-				double last_max_vec_mean = max_vec_mean;
-				FragAssem_ = brute_move_large_;
-				
-				for(int fragment_cycle = 0; fragment_cycle < 30; fragment_cycle++){
-					if(max_vec_mean >= last_max_vec_mean ){
-						if(max_vec_mean_index+1>0 && max_vec_mean_index+1<lenth_of_sequence-8){
-							core::pose::Pose pose_f;
-							pose_f = Enhance_population[i];
-							pose_E = Enhance_population[i];
-							
-							bml->define_start_window(max_vec_mean_index+1);
-							FragAssem_->apply( pose_f );
-							
-							Real temp1 = pose_f.phi(max_vec_mean_index+1);
-							Real temp2 = pose_f.psi(max_vec_mean_index+1);
-							Real temp3 = pose_f.omega(max_vec_mean_index+1);
-							pose_E.set_phi(max_vec_mean_index+1,temp1);
-							pose_E.set_psi(max_vec_mean_index+1,temp2);
-							pose_E.set_omega(max_vec_mean_index+1,temp3);
-							
-							Enhance_Distance_score(pose_E);
-							max_vec_mean = again_calc();
-						}
-					}
-					else{
-						Enhance_population[i] = pose_E;
-						cheng = true;
-						
-						break;
-					}
-				}
-				
-				if(!cheng){
-					shib_po.push_back(max_vec_mean_index);
-				}
-			}
-		}
-	  
-	  
-		for(int position_cycle_in = 1; position_cycle_in <= 1; position_cycle_in++){
-			vector<Size> shib_po;
-			shib_po.push_back(0);
-			for(int position_cycle = 0; position_cycle < lenth_of_sequence; position_cycle++){
-				bool cheng(false);
-			
-				lock_position(shib_po);
-				
-				double last_max_vec_mean = max_vec_mean;
-				FragAssem_ = brute_move_small_;
-				
-				for(int fragment_cycle = 0; fragment_cycle < 30; fragment_cycle++){
-					if(max_vec_mean >= last_max_vec_mean ){
-						core::pose::Pose pose_f;
-						pose_f = Enhance_population[i];
-						pose_E = Enhance_population[i];
-						
-						bms->define_start_window(max_vec_mean_index+1);
-						FragAssem_->apply( pose_f );
-						
-						Real temp1 = pose_f.phi(max_vec_mean_index+1);
-						Real temp2 = pose_f.psi(max_vec_mean_index+1);
-						Real temp3 = pose_f.omega(max_vec_mean_index+1);
-						pose_E.set_phi(max_vec_mean_index+1,temp1);
-						pose_E.set_psi(max_vec_mean_index+1,temp2);
-						pose_E.set_omega(max_vec_mean_index+1,temp3);
-						
-						Enhance_Distance_score(pose_E);
-						max_vec_mean = again_calc();
-					}
-					else{
-						Enhance_population[i] = pose_E;
-						cheng = true;
-						
-						break;
-					}
-				}
-				
-				if(!cheng){
-					shib_po.push_back(max_vec_mean_index);
-				}
-			}
-		}
-		
-		for(int position_cycle_in = 1; position_cycle_in <= 1; position_cycle_in++){
-			vector<Size> shib_po;
-			shib_po.push_back(0);
-			for(int position_cycle = 0; position_cycle < lenth_of_sequence; position_cycle++){
-				bool cheng(false);
-				
-				lock_position(shib_po);
-				
-				double last_max_vec_mean = max_vec_mean;
-				FragAssem_ = brute_move_small_;
-				
-				for(int fragment_cycle = 0; fragment_cycle < 10; fragment_cycle++){
-					if(max_vec_mean >= last_max_vec_mean ){
-						core::pose::Pose pose_fa;
-						core::pose::Pose pose_fb;
-						pose_fa = Enhance_population[i];
-						pose_fb = Enhance_population[i];
-						pose_E = Enhance_population[i];
-						
-						bms->define_start_window(max_vec_mean_index+1);
-						FragAssem_->apply( pose_fa );
-						FragAssem_->apply( pose_fb );
-						
-						Real temp1 = pose_E.phi(max_vec_mean_index+1) + 0.5*( pose_fb.phi(max_vec_mean_index+1)-pose_fa.phi(max_vec_mean_index+1) );
-						Real temp2 = pose_E.psi(max_vec_mean_index+1) + 0.5*( pose_fb.psi(max_vec_mean_index+1)-pose_fa.psi(max_vec_mean_index+1) );
-						Real temp3 = pose_E.omega(max_vec_mean_index+1) + 0.5*( pose_fb.omega(max_vec_mean_index+1)-pose_fa.omega(max_vec_mean_index+1) );
-						pose_E.set_phi(max_vec_mean_index+1,temp1);
-						pose_E.set_psi(max_vec_mean_index+1,temp2);
-						pose_E.set_omega(max_vec_mean_index+1,temp3);
-						
-						Enhance_Distance_score(pose_E);
-						max_vec_mean = again_calc();
-					}
-					else{
-						Enhance_population[i] = pose_E;
-						cheng = true;
-						
-						break;
-					}
-				}
-				
-				if(!cheng){
-					shib_po.push_back(max_vec_mean_index);
-				}
-			}
-		}
-		
-		for(int position_cycle_in = 1; position_cycle_in <= 1; position_cycle_in++){
-			vector<Size> shib_po;
-			shib_po.push_back(0);
-			for(int position_cycle = 0; position_cycle < lenth_of_sequence; position_cycle++){
-				bool cheng(false);
-				
-				lock_position(shib_po);
-				
-				double last_max_vec_mean = max_vec_mean;
-				FragAssem_ = brute_move_small_;
-			
-				for(int fragment_cycle = 0; fragment_cycle < 10; fragment_cycle++){
-					if(max_vec_mean >= last_max_vec_mean ){
-						core::pose::Pose pose_fa;
-						core::pose::Pose pose_fb;
-						pose_fa = Enhance_population[i];
-						pose_fb = Enhance_population[i];
-						pose_E = Enhance_population[i];
-						
-						bms->define_start_window(max_vec_mean_index+1);
-						FragAssem_->apply( pose_fa );
-						FragAssem_->apply( pose_fb );
-						
-						Real temp1 = pose_E.phi(max_vec_mean_index+1) + 0.5*( pose_E.phi(max_vec_mean_index+1)-pose_fa.phi(max_vec_mean_index+1) );
-						Real temp2 = pose_E.psi(max_vec_mean_index+1) + 0.5*( pose_E.psi(max_vec_mean_index+1)-pose_fa.psi(max_vec_mean_index+1) );
-						Real temp3 = pose_E.omega(max_vec_mean_index+1) + 0.5*( pose_E.omega(max_vec_mean_index+1)-pose_fa.omega(max_vec_mean_index+1) );
-						pose_E.set_phi(max_vec_mean_index+1,temp1);
-						pose_E.set_psi(max_vec_mean_index+1,temp2);
-						pose_E.set_omega(max_vec_mean_index+1,temp3);
-						
-						Enhance_Distance_score(pose_E);
-						max_vec_mean = again_calc();
-					}
-					else{
-						Enhance_population[i] = pose_E;
-						cheng = true;
-						
-						break;
-					}
-				}
-				
-				if(!cheng){
-					shib_po.push_back(max_vec_mean_index);
-				}
-			}
-		}
-	}
-}
-
-void 
-ClassicAbinitio::lock_position(vector<Size> shib){
-	vector<double> vec_mean;
-	for(int i = 0; i < lenth_of_sequence; i++){
-		if( i == 0 || i>=lenth_of_sequence-3 ){
-			vec_mean.push_back(0);
-		}
-		else{
-			int l =0;
-			double local_score = 0;
-			for(int m = i; m < lenth_of_sequence; m++){
-				for(int n = 0; n < i; n++){
-					if( dscore_map[m][n] !=0 ){
-						local_score += dscore_map[m][n];
-						l++;
-					}
-				}
-			}
-			double mean_local_score = 0;
-			if( l!=0 ){
-				mean_local_score = local_score/l;
-			}
-			vec_mean.push_back(mean_local_score);
-		}
-	}
-	for(Size i = 0; i < shib.size(); i++){
-		vec_mean[shib[i]] = 0;
-	}
-	
-	max_vec_mean_index = max_element(vec_mean.begin(), vec_mean.end())-vec_mean.begin();
-	max_vec_mean = *max_element(vec_mean.begin(), vec_mean.end());
-}
-
-double 
-ClassicAbinitio::again_calc(){
-	int l = 0;
-	double local_score = 0;
-	for(int m = max_vec_mean_index; m < lenth_of_sequence; m++){
-		for(Size n = 0; n < max_vec_mean_index; n++){
-			if( dscore_map[m][n] !=0 ){
-				local_score += dscore_map[m][n];
-				l++;
-			}
-		}
-	}
-	
-	double mean_local_score = 0;
-	if( l!=0 ){
-		mean_local_score = local_score/l;
-	}
-	
-	return mean_local_score;
-}
-
 double 
 ClassicAbinitio::Enhance_Distance_score(core::pose::Pose& pose){
 	double Dis_score = 0;
@@ -1869,6 +1876,109 @@ ClassicAbinitio::Enhance_Distance_score(core::pose::Pose& pose){
 }
 
 void 
+ClassicAbinitio::Last_gen_pose(vector< vector<core::pose::Pose> > Vec_modal){
+	//================Dscore最低================
+	vector< pair<double, int> > modal_mean_contact;
+	for(Size i = 0; i < Vec_modal.size(); i++){
+		double contact_num = 0;
+		for(Size j = 0; j < Vec_modal[i].size(); j++){
+			contact_num += Distance_score(Vec_modal[i][j]);
+		}
+		modal_mean_contact.push_back( make_pair(contact_num/Vec_modal[i].size(), i) );
+	}
+	
+	sort(modal_mean_contact.begin(), modal_mean_contact.end());
+	
+	vector<core::pose::Pose> sort_score_pose;
+	for(Size i = 0; i < modal_mean_contact.size(); i++){
+		vector<double> last_modal_contact;
+		for(Size j = 0; j < Vec_modal[modal_mean_contact[i].second].size(); j++)
+			last_modal_contact.push_back( Distance_score(Vec_modal[modal_mean_contact[i].second][j]) );
+		
+		int min_contact_index = min_element(last_modal_contact.begin(), last_modal_contact.end()) - last_modal_contact.begin();
+		sort_score_pose.push_back(Vec_modal[modal_mean_contact[i].second][min_contact_index]);
+	}
+	
+	//================能量最低================
+	vector<core::pose::Pose> sort_ener_pose;
+	for(Size i = 0; i < modal_mean_contact.size(); i++){
+		vector<double> last_modal_energy;
+		for(Size j = 0; j < Vec_modal[modal_mean_contact[i].second].size(); j++)
+			last_modal_energy.push_back( (*score_stage4_)(Vec_modal[modal_mean_contact[i].second][j]) );
+		
+		int min_energy_index = min_element(last_modal_energy.begin(), last_modal_energy.end()) - last_modal_energy.begin();
+		sort_ener_pose.push_back(Vec_modal[modal_mean_contact[i].second][min_energy_index]);
+	}
+	
+	//================DMscore质心================
+	vector< vector< vector<double> > > DMscore_map_mer;
+	for(Size i = 0; i < Vec_modal.size(); i++){
+		vector<core::pose::Pose> population;
+		for(Size j = 0; j < Vec_modal[i].size(); j++)
+			population.push_back( Vec_modal[i][j] );
+		
+		DMscore_map_mer.push_back( calculate_population_DMscore(population) );
+	}
+	
+	vector<core::pose::Pose> center_of_modal;
+	for(Size i = 0; i < DMscore_map_mer.size(); i++){
+		vector<double> sum_j; 
+		for(Size j = 0; j < DMscore_map_mer[i].size(); j++){
+			double sum_dmscore = 0;
+			for(Size k = 0; k < DMscore_map_mer[i][j].size(); k++){
+				sum_dmscore += DMscore_map_mer[i][j][k];
+			}
+			sum_j.push_back( sum_dmscore );
+		}
+		int max_sum_j_index = max_element(sum_j.begin(), sum_j.end()) - sum_j.begin();
+		center_of_modal.push_back(Vec_modal[i][max_sum_j_index]);
+		
+	}
+	
+	
+	vector<double> min_Cscore;
+	for(Size i = 0; i < sort_score_pose.size(); i++){
+		min_Cscore.push_back( Distance_score(sort_score_pose[i]) );
+		
+		stringstream ss;
+		string str;
+		string name("output_files/Distance_model_");
+		string suf(".pdb");
+		ss << i;
+		ss >> str;
+		sort_score_pose[i].dump_pdb(name+str+suf);
+	}
+	
+	
+	vector<double> min_energy;
+	for(Size i = 0; i < sort_ener_pose.size(); i++){
+		min_energy.push_back( Distance_score(sort_ener_pose[i]) );
+		
+		stringstream ss;
+		string str;
+		string name("output_files/Energy_model_");
+		string suf(".pdb");
+		ss << i;
+		ss >> str;
+		sort_ener_pose[i].dump_pdb(name+str+suf);
+	}
+	
+	
+	vector<double> min_center;
+	for(Size i = 0; i < center_of_modal.size(); i++){
+		min_center.push_back( Distance_score(center_of_modal[i]) );
+		stringstream ss;
+		string str;
+		string name("output_files/Center_model_");
+		string suf(".pdb");
+		ss << i;
+		ss >> str;
+		center_of_modal[i].dump_pdb(name+str+suf);
+	}
+
+}
+
+void 
 ClassicAbinitio::Read_parameters(){
 	ifstream Rp("./parameter");
 	string line;
@@ -1881,6 +1991,7 @@ ClassicAbinitio::Read_parameters(){
 			parametersMap.insert(make_pair(parameterName, parameterValue));
 		}
 	}
+	cout << parametersMap.size() << endl;
 	Rp.close();
 }
 
@@ -1891,6 +2002,13 @@ ClassicAbinitio::get_parameters(map<string, int>& parametersMap){
 	else{
 		cout << "====================================parameter 'N' is not found in parameters!!!" << endl;
 		exit(0);
+	}
+	
+	if (parametersMap.find("Cluster_num") != parametersMap.end())
+	    Cluster_num = parametersMap["Cluster_num"];
+	else{
+	    cout << "====================================parameter 'Cluster_num' is not found in parameters!!!" << endl;
+	    exit(0);
 	}
 	
 	if (parametersMap.find("Crowding_radius_exp") != parametersMap.end())
@@ -1931,7 +2049,7 @@ ClassicAbinitio::get_parameters(map<string, int>& parametersMap){
 
 
 vector< core::pose::Pose >
-ClassicAbinitio::Initial_population(core::pose::Pose &pose){
+ClassicAbinitio::Initial_population_(core::pose::Pose &pose){
 	pose::Pose ready_pose = pose;
 	for(int i = 0; i < N; i++){
 		RMA_stage1( pose );
