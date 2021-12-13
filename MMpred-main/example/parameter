@@ -1,0 +1,12 @@
+# ======================PARAMETER========================
+# Name                      Value
+#
+# =====================Multimodal========================
+N                           400
+Cluster_num                 0
+Crowding_radius_exp         20
+Crowding_radius_mer        10
+# =====================three_stage=======================
+G_explore                   500
+G_maintain                 300
+G_enhance_c               1200
