@@ -53,11 +53,11 @@ Please follow the below steps to run MMpred:
  $> $ROSETTA3/main/source/bin/AbinitioRelax.default.linuxgccrelease @flags
 ```
 
-- Five models are generated in the ``"output_files/"`` folder.
+- Five models are generated in the ``"final_pdb/"`` folder.
 
 
 ## 4. OUTPUT
-Output files of MMpred are stored in the ``"example/output_files/"`` folder, including five predicted models (model_X.pdb).
+Output files of MMpred are stored in the ``"example/final_pdb/"`` folder, including five predicted models (model_X.pdb).
 
 	model_1.pdb
 	model_2.pdb
